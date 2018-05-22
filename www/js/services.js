@@ -1,190 +1,215 @@
 angular.module('songhop.services', ['ionic.utils'])
+    .factory('User', function($http, $q, $localstorage, SERVER) {
 
-.factory('User', function($http, SERVER, $q, $localstorage) {
-	var o = {
-		favorites:[],
-		newFavorites: 0,
-		username: false,
-		session_id: false
-	}
+        var o = {
+            username: false,
+            session_id: false,
+            favorites: [],
+            newFavorites: 0
+        }
 
-	o.auth = function(username, signingUp) {
+        // attempt login or signup
+        o.auth = function(username, signingUp) {
 
-		var authRoute;
+            var authRoute;
 
-		if (signingUp) {
-			authRoute = 'signup';
-		} else {
-			authRoute='login'
-		}
-		return $http.post(SERVER.url + '/' + authRoute, 
-			{username: username}).success(function(data){
-				o.setSession(data.username, data.session_id, 
-					data.favorites)
-			});
-		}
+            if (signingUp) {
+                authRoute = 'signup';
+            } else {
+                authRoute = 'login'
+            }
 
-		o.addSongToFavorites = function(song) {
-			//we sure available song to add
-			
-			if(!song) return false;
+            return $http.post(SERVER.url + '/' + authRoute, {username: username})
+                .success(function(data) {
+                    o.setSession(data.username, data.session_id, data.favorites);
+                });
+        }
 
-			// add to fav array
-			o.favorites.unshift(song);
-			o.newFavorites++;
+        // set session data
+        o.setSession = function(username, session_id, favorites) {
+            if (username) o.username = username;
+            if (session_id) o.session_id = session_id;
+            if (favorites) o.favorites = favorites;
 
-			//insisting this to server
-			return $http.post(SERVER.url + '/favorites', {session_id: 
-				o.session_id, song_id: song.song_id});
-		}
+            // set data in localstorage object
+            $localstorage.setObject('user', {
+                username: username,
+                session_id: session_id
+            });
+        }
 
-		o.removeSongFromFavorites = function(song, index) {
-			//ensure we have song to add
-			if (!song) return false;
+        // check if there's a user session present
+        o.checkSession = function() {
+          var defer = $q.defer();
 
-			//add to fav array
-			o.favorites.splice(index, 1);
+          if (o.session_id) {
+            // if this session is already initialized in the service
+            defer.resolve(true);
 
-			//persist this for server
-			return $http({
-				method: 'DELETE',
-				url: SERVER.url + '/favorites',
-				params: {session_id: o.session_id, song_id: song.song_id}
-			});
-		}
+          } else {
+            // detect if there's a session in localstorage from previous use.
+            // if it is, pull into our service
+            var user = $localstorage.getObject('user');
 
-		o.favoriteCount = function () {
-			return o.newFavorites;
-		}
+            if (user.username) {
+              // if there's a user, lets grab their favorites from the server
+              o.setSession(user.username, user.session_id);
+              o.populateFavorites().then(function() {
+                defer.resolve(true);
+              });
 
-		//gets entire list of person favs from server
-		o.populateFavorites = function () {
-			return $http({
-				method: 'GET',
-				url: SERVER.url +'/favorites',
-				params: {session_id: o.session_id}
-			}).success(function(data){
-				//merge data into queue
-				o.favorites = data;
-			});
-		}
+            } else {
+              // no user info in localstorage, reject
+              defer.resolve(false);
+            }
 
-		o.setSession = function( username, session_id, favorites) {
-			if(username) o.username = username;
-			if(session_id) o.session_id= session_id;
-			if(favorites) o.favorites = favorites;
+          }
 
-			//put data in localstorage obj
-			$localstorage.setObject ('user', {username: username, 
-				session_id:session_id });
-		}
+          return defer.promise;
+        }
 
-		o.checkSession = function() {
-			var defer = $q.defer();
+        // wipe out our session data
+        o.destroySession = function() {
+           $localstorage.setObject('user', {});
+           o.username = false;
+           o.session_id = false;
+           o.favorites = [];
+           o.newFavorites = 0;
+        }
 
-			if (o.session_id) {
-				//when sess already initiated in serv
-				defer.resolve(true);
-			} else {
-				//detect if sess exists in localstorage from previous time
-				//if this is case then pull in service
-				var user = $localstorage.getObject('user');
+        o.addSongToFavorites = function(song) {
+            // make sure there's a song to add
+            if (!song) return false;
 
-				if (user.username) {
-					//if user there, then grab credentials
-					o.setSession(user.username, user.session_id);
-					o.populateFavorites().then(function() {
-						defer.resolve(true);
-					});
+            // add to favorites array
+            o.favorites.unshift(song);
+            o.newFavorites++;
 
-				} else {
-					//none info in localstorage, reject promise
-					defer.resolve(false);
-				}
-			}
-			return defer.promise
-		}
-		
-		//eliminate all sess data
-		o.destroySession = function() {
-			$localstorage.setObject('user', {});
-			o.username = false;
-			o.session_id =false;
-			o.favorites=[];
-			o.newFavorites= 0;
-		}
-		return o;
-	})
+            // persist this to the server
+            return $http.post(SERVER.url + '/favorites', {
+                session_id: o.session_id,
+                song_id: song.song_id
+            });
+        }
 
-.factory('Recommendations', function($http, SERVER, $q){
-	
-	var o = {
-		queue : []
-	};
-	var media;
+        o.removeSongFromFavorites = function(song, index) {
+            // make sure there's a song to add
+            if (!song) return false;
 
-	o.init = function ( ) {
-		if(o.queue.length === 0 ) {
-// if nothing in queue, lets put smth there
-// therefore we call here init 
+            // add to favorites array
+            o.favorites.splice(index, 1);
 
-return o.getNextSongs();
-}
-else {
-	//else play curr song
-	return o.playCurrentSong();
-}
-}
+            // persist this to the server
+            return $http({
+                method: 'DELETE',
+                url: SERVER.url + '/favorites',
+                params: {
+                    session_id: o.session_id,
+                    song_id: song.song_id
+                }
+            });
+        }
 
+        // gets the entire list of this user's favs from server
+        o.populateFavorites = function() {
+            return $http({
+                method: 'GET',
+                url: SERVER.url + '/favorites',
+                params: {
+                    session_id: o.session_id
+                }
+            }).success(function(data) {
+                // merge data into the queue
+                o.favorites = data;
+            });
+        }
 
-o.getNextSongs = function () {
-	return $http({
-		method: 'GET',
-		url:SERVER.url +'/recommendations'
-	}).success(function(data){
-//merge data into queue
-o.queue = o.queue.concat(data);
+        o.favoriteCount = function() {
+            return o.newFavorites;
+        }
 
-})
-}
+        return o;
+    })
 
-o.nextSong = function() {
-		//pop index 0 out
-		o.queue.shift();
+.factory('Recommendations', function($http, $q, SERVER) {
+    var o = {
+        queue: []
+    };
 
-		//end playing
-		o.haltAudio();
+    // Music playing var
+    var media;
 
-//low on songs? lets add more
-if(o.queue.length < 5) {
-	o.getNextSongs();
-}
-}
+    // Music playing stuff - WARNING: may not be audio only
+    // user may refresh in favorites tab and then return to discover
+    /*
+      When you tap on the favorites page, the current song will now pause.
+      But when you go back to the discover page, the song won't resume.
+      We could just fire Recommendations.playCurrentSong() for on-deselect,
+      but that method assumes that there is at least one song in our queue,
+      which is not a good assumption.
 
-o.playCurrentSong = function() {
-	var defer = $q.defer ();
+      For example, what if the user is on the favorites page, refreshes, and then goes to the Discover page?
+      playCurrentSong would throw an error trying to call play() on a nonexistent audio object.
 
-	//play 30 sec prev
+      !!! First line of discover controller changed from Recommendations.getNextSongs() to Recommendations.init()
+    */
+    o.init = function() {
+        if (o.queue.length === 0) {
+            // if there's nothing in the queue, fill it.
+            // this also means that this is the first call of init.
+            return o.getNextSongs();
 
-	media = new Audio(o.queue[0].preview_url);
+        } else {
+            // otherwise, play the current song
+            return o.playCurrentSong();
+        }
+    }
 
-//if song loads, solve promise to let controller understand
+    o.getNextSongs = function() {
+        return $http({
+            method: 'GET',
+            url: SERVER.url + '/recommendations'
+        }).success(function(data) {
+            // merge data into the queue
+            o.queue = o.queue.concat(data);
+        });
+    }
 
-media.addEventListener("loadeddata", function () {
-	defer.resolve();
-})
+    o.nextSong = function() {
+        // pop the index 0 off
+        o.queue.shift();
 
-media.play();
+        // Music playing stuff
+        o.haltAudio();
 
-return defer.promise;
+        // low on the queue? lets fill it up
+        if (o.queue.length <= 3) {
+            o.getNextSongs();
+        }
 
-}
-//just while switch to fav tab
-o.haltAudio = function() {
-	if (media) media.pause();
-}
+    }
 
-return o;
-})
+    // Music playing stuff
+    o.playCurrentSong = function() {
+        var defer = $q.defer();
 
+        // play the current song's preview
+        media = new Audio(o.queue[0].preview_url);
 
+        // when song loaded, resolve the promise to let controller know.
+        media.addEventListener("loadeddata", function() {
+            defer.resolve();
+        });
+
+        media.play();
+
+        return defer.promise;
+    }
+
+    // used when switching to favorites tab
+    o.haltAudio = function() {
+        if (media) media.pause();
+    }
+
+    return o;
+});

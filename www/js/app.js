@@ -15,7 +15,7 @@ angular.module('songhop', ['ionic', 'songhop.controllers'])
     if(window.StatusBar) {
       StatusBar.styleDefault();
     }
-    
+
 
   });
 })
@@ -24,32 +24,31 @@ angular.module('songhop', ['ionic', 'songhop.controllers'])
 .config(function($stateProvider, $urlRouterProvider) {
 
   // Ionic uses AngularUI Router, which uses the concept of states.
+  // Learn more here: https://github.com/angular-ui/ui-router.
   // Set up the various states in which the app can be.
   // Each state's controller can be found in controllers.js.
   $stateProvider
 
-// Set up an abstract state for the tabs directive:
+
+  // Set up an abstract state for the tabs directive:
   .state('tab', {
     url: '/tab',
     abstract: true,
     templateUrl: 'templates/tabs.html',
     controller: 'TabsCtrl',
-    //never loading state until we already populated our User, 
-    //if we have to
-    resolve : {
-      populateSession : function(User) {
+    // don't load the state until we've populated our User, if necessary.
+    resolve: {
+      populateSession: function(User) {
         return User.checkSession();
       }
     },
-    onEnter: function($state, User) {
-      User.checkSession().then(function(hasSession){
-        if (hasSession) $state.go('splash'); 
+    onEnter: function($state, User){
+      User.checkSession().then(function(hasSession) {
+        if (!hasSession) $state.go('splash');
       });
     }
   })
 
-
-  
   // Each tab has its own nav history stack:
 
   .state('tab.discover', {
@@ -72,18 +71,17 @@ angular.module('songhop', ['ionic', 'songhop.controllers'])
       }
     })
 
-   //splash page
+    // splash page
   .state('splash', {
-    url: '/',
-    templateUrl: 'templates/splash.html',
-    controller: 'SplashCtrl',
-    onEnter: function($state, User) {
-      User.checkSession().then(function(hasSession){
-        if(hasSession) $state.go('tab.discover');
-      });
-    }
+      url: '/',
+      templateUrl: 'templates/splash.html',
+      controller: 'SplashCtrl',
+      onEnter: function($state, User){
+        User.checkSession().then(function(hasSession) {
+          if (hasSession) $state.go('tab.discover');
+        });
+      }
   })
-
   // If none of the above states are matched, use this as the fallback:
   $urlRouterProvider.otherwise('/');
 
@@ -95,5 +93,5 @@ angular.module('songhop', ['ionic', 'songhop.controllers'])
   //url: 'http://localhost:3000'
 
   // Public Heroku server
-  url: 'http://ionic-songhop.herokuapp.com'
+  url: 'https://ionic-songhop.herokuapp.com'
 });
