@@ -13,7 +13,7 @@ angular.module('songhop.services', ['ionic.utils'])
 		var authRoute;
 
 		if (signingUp) {
-			authRoute = 'signingUp';
+			authRoute = 'signup';
 		} else {
 			authRoute='login'
 		}

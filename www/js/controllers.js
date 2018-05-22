@@ -7,12 +7,12 @@ Controller for the discover page
 .controller('DiscoverCtrl', function($scope,$ionicLoading, $timeout, 
     User, Recommendations) {
 
-Recommendations.init()
-.then(function(){
-    $scope.currentSong = Recommendations.queue[0];
-   return Recommendations.playCurrentSong();
-})
-.then(function() {
+    Recommendations.init()
+    .then(function(){
+        $scope.currentSong = Recommendations.queue[0];
+        return Recommendations.playCurrentSong();
+    })
+    .then(function() {
     //close loading
     hideLoading();
     $scope.currentSong.loaded = true;
@@ -23,8 +23,8 @@ Recommendations.init()
 $scope.sendFeedback = function(bool){
 
     //first, add to fav if they favd
-   if (bool) {
-    User.addSongToFavorites ($scope.currentSong)};
+    if (bool) {
+        User.addSongToFavorites ($scope.currentSong)};
 
 
 	//set var for correct anim seq
@@ -78,6 +78,7 @@ Controller for the favorites page
 .controller('FavoritesCtrl', function($scope, User, $window) {
 	//get fav list from user service
 	$scope.favorites = User.favorites;
+     $scope.username =User.username;
 
     $scope.removeSong = function(song, index) {
         User.removeSongFromFavorites (song, index);
@@ -85,7 +86,7 @@ Controller for the favorites page
     $scope.openSong = function(song) {
         $window.open(song.open_url, "_system");
     }
-    $scope.username =User.username;
+   
 
 })
 
@@ -95,6 +96,8 @@ Controller for our tab bar
 */
 .controller('TabsCtrl', function($scope, Recommendations, User, $window) {
 
+    $scope.favCount = User.favoriteCount;
+    
     //stop song when going to fav page
     $scope.enteringFavorites = function() {
         User.newFavorites = 0;
@@ -110,12 +113,8 @@ Controller for our tab bar
 
         //instead of $state.go, we redirect
         //why? we have to ensure views not cached
-
         $window.location.href = 'index.html';
     }
-
-    $scope.favCount = User.favoriteCount;
-
 })
 
 //controller for splash state
@@ -127,7 +126,7 @@ Controller for our tab bar
             $state.go('tab.discover');
         }, function() {
             //error management in this spot
-            alert('Mmm... better other username.')
+            alert('ALready taken... better other username.')
         })
     }
 
