@@ -1,6 +1,10 @@
 <ion-view view-title="Favorites" class="favorites-page">
-  <ion-content>
-
+  <ion-nav-buttons side = "right">
+    <button class="button" ng-click="logout()"  >
+      Log out
+    </button>
+    </ion-nav-buttons>
+ <ion-content>
     <ion-list>
       <ion-item ng-repeat ="song in favorites" class="item-avatar" ng-click ="openSong(song)" >
         <img ng-src=" {{song.image_small}} ">

@@ -85,6 +85,7 @@ Controller for the favorites page
     $scope.openSong = function(song) {
         $window.open(song.open_url, "_system");
     }
+    $scope.username =User.username;
 
 })
 
@@ -92,7 +93,7 @@ Controller for the favorites page
 /*
 Controller for our tab bar
 */
-.controller('TabsCtrl', function($scope, Recommendations, User) {
+.controller('TabsCtrl', function($scope, Recommendations, User, $window) {
 
     //stop song when going to fav page
     $scope.enteringFavorites = function() {
@@ -102,6 +103,15 @@ Controller for our tab bar
 
     $scope.leavingFavorites= function() {
         Recommendations.init();
+    }
+
+    $scope.logout = function() {
+        User.destroySession();
+
+        //instead of $state.go, we redirect
+        //why? we have to ensure views not cached
+
+        $window.location.href = 'index.html';
     }
 
     $scope.favCount = User.favoriteCount;
